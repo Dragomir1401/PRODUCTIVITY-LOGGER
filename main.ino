@@ -10,12 +10,12 @@
 #define BLUE_PIN 7
 #define BUZZER_PIN 8
 
-#define NOTE_C3  131
-#define NOTE_E3  165
-#define NOTE_G3  196
-#define NOTE_C5  523
-#define NOTE_E5  659
-#define NOTE_G5  784
+#define NOTE_C4 261
+#define NOTE_E4 329
+#define NOTE_G4 392
+#define NOTE_C5 523
+#define NOTE_E5 659
+#define NOTE_G5 784
 
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance.
@@ -77,34 +77,27 @@ void accessGrantedMelody() {
   digitalWrite(BUZZER_PIN, LOW); // Ensure buzzer is off initially
   turnOffLEDs();
   digitalWrite(GREEN_PIN, HIGH); // Turn green LED on
-  for(uint8_t nLoop = 0; nLoop < 1; nLoop++) {
-    tone(BUZZER_PIN, NOTE_C5, 200);
-    delay(320);
-    tone(BUZZER_PIN, NOTE_E5, 200);
-    delay(320);
-    tone(BUZZER_PIN, NOTE_G5, 200);
-    delay(270);
-    tone(BUZZER_PIN, NOTE_E5, 200);
-    delay(270);
-    tone(BUZZER_PIN, NOTE_C5, 200);
-    delay(230);
-  }
+
+  tone(BUZZER_PIN, NOTE_C5, 250); // C5
+  delay(350);
+  tone(BUZZER_PIN, NOTE_E5, 250); // E5
+  delay(350);
+
   noTone(BUZZER_PIN); // Stop any tone
   digitalWrite(GREEN_PIN, LOW); // Turn off LED after melody
   digitalWrite(BUZZER_PIN, HIGH); // Explicitly turn off buzzer after use
 }
 
-
 void accessDeniedMelody() {
   digitalWrite(BUZZER_PIN, LOW); // Ensure buzzer is off initially
   turnOffLEDs();
   digitalWrite(RED_PIN, HIGH); // Turn red LED on
-  tone(BUZZER_PIN, NOTE_G3, 300); // Lower tone G3
-  delay(420);
-  tone(BUZZER_PIN, NOTE_E3, 300); // Lower tone E3
-  delay(420);
-  tone(BUZZER_PIN, NOTE_C3, 300); // Lowest tone C3
-  delay(420);
+
+  tone(BUZZER_PIN, NOTE_G4, 150); // G4
+  delay(150);
+  tone(BUZZER_PIN, NOTE_C4, 150); // C4
+  delay(150);
+
   noTone(BUZZER_PIN); // Stop any tone
   digitalWrite(RED_PIN, LOW); // Turn off LED after melody
   digitalWrite(BUZZER_PIN, HIGH); // Explicitly turn off buzzer after use
