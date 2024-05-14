@@ -19,7 +19,7 @@
 #define NOTE_E5 659
 #define NOTE_G5 784
 
-#define MAX_UIDS 100
+#define MAX_UIDS 10
 
 struct user
 {
@@ -30,6 +30,7 @@ struct user
 MFRC522 mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance.
 LiquidCrystal_I2C lcd(0x27, 16, 2); // Set the LCD I2C address and display size
 user authorizedUsers[MAX_UIDS];
+int logTimes[MAX_UIDS];
 int uidCount = 0;
 ThreeWire myWire(4,3,2); // IO, SCLK, CE
 RtcDS1302<ThreeWire> Rtc(myWire);
@@ -49,14 +50,19 @@ void setup() {
   digitalWrite(BUZZER_PIN, HIGH); // Ensure buzzer is off initially
   turnOffLEDs(); // Turn off all LEDs initially
   Serial.println("Approximate your card to the reader...");
-  authorizedUsers[uidCount++].uid = "E3E40B2F";
-  authorizedUsers[uidCount++].logged = false;
-  authorizedUsers[uidCount++].uid = "E37A082F";
-  authorizedUsers[uidCount++].logged = false;
+
+  authorizedUsers[uidCount].uid = "E3E40B2F";
+  authorizedUsers[uidCount].logged = false;
+  logTimes[uidCount] = 0;
+  uidCount++;
+
+  authorizedUsers[uidCount].uid = "E37A082F";
+  authorizedUsers[uidCount].logged = false;
+  logTimes[uidCount] = 0;
+  uidCount++;
 }
 
-void loop()
-{
+void loop() {
   // Look for new cards
   if (mfrc522.PICC_IsNewCardPresent()) {
     if (mfrc522.PICC_ReadCardSerial()) {
@@ -68,29 +74,48 @@ void loop()
       if (isAuthorizedUID(readUID)) {
         int index = uidToIndex(readUID);
 
-        if (authorizedUsers[index].logged == false)
-        {
-          unsigned long time = readQuartzTime();
+        if (!authorizedUsers[index].logged) {
+          RtcDateTime now = Rtc.GetDateTime();
+          String nowString = timeToString(now);
+          Serial.println(nowString);
+          Serial.println();
 
           authorizedUsers[index].logged = true;
+          logTimes[index] = dateToInt(now);
+
           Serial.println("Access Granted");
           lcd.clear();
           lcd.print("Access Granted");
+          lcd.setCursor(0, 1);
+          lcd.print(nowString);
           accessGrantedMelody();
-        }
-        else
-        {
+          delay(2000); // Display log out time for 2 seconds
+        } else {
+          RtcDateTime now = Rtc.GetDateTime();
+          String nowString = timeToString(now);
+          Serial.println(nowString);
+          Serial.println();
+
           authorizedUsers[index].logged = false;
           Serial.println("Logging out...");
           lcd.clear();
-          lcd.print("Logging out...");
-          delay(3000);
-          lcd.print("Logged out...");
+          lcd.print("Log out at ");
+          lcd.setCursor(0, 1);
+          lcd.print(nowString);
           goodbyeMelody();
+          delay(2000); // Display log out time for 2 seconds
+
+          int seconds = dateToInt(now);
+          int spentTime = seconds - logTimes[index];
+          String spentTimeString = formatSpentTime(spentTime);
+
+          lcd.clear();
+          lcd.print("Spent time ");
+          lcd.setCursor(0, 1);
+          lcd.print(spentTimeString);
+          delay(3000); // Display spent time for 3 seconds
         }
-      }
-      else
-      {
+      } else {
         Serial.println("Access Denied");
         lcd.clear();
         lcd.print("Access Denied");
@@ -104,10 +129,18 @@ void loop()
   }
 }
 
-unsigned long readQuartzTime() {
+String formatSpentTime(int totalSeconds) {
+    int hours = totalSeconds / 3600;
+    int minutes = (totalSeconds % 3600) / 60;
+    int seconds = totalSeconds % 60;
+
+    char timeString[20];
+    snprintf(timeString, sizeof(timeString), "%02dh:%02dm:%02ds", hours, minutes, seconds);
+    return String(timeString);
+}
+
+RtcDateTime readQuartzTime() {
   RtcDateTime now = Rtc.GetDateTime();
-  printDateTime(now);
-  Serial.println();
 
   if (!now.IsValid())
   {
@@ -115,22 +148,66 @@ unsigned long readQuartzTime() {
       //    1) the battery on the device is low or even missing and the power line was disconnected
       Serial.println("RTC lost confidence in the DateTime!");
   }
+
+  return now;
 }
 
-void printDateTime(const RtcDateTime& dt)
-{
-    char datestring[20];
+int daysInMonth(int month, int year) {
+    switch (month) {
+        case 1: return 31;
+        case 2: return 28;
+        case 3: return 31;
+        case 4: return 30;
+        case 5: return 31;
+        case 6: return 30;
+        case 7: return 31;
+        case 8: return 31;
+        case 9: return 30;
+        case 10: return 31;
+        case 11: return 30;
+        case 12: return 31;
+        default: return 0; // Invalid month
+    }
+}
 
-    snprintf_P(datestring, 
-            countof(datestring),
-            PSTR("%02u/%02u/%04u %02u:%02u:%02u"),
-            dt.Month(),
-            dt.Day(),
-            dt.Year(),
-            dt.Hour(),
-            dt.Minute(),
-            dt.Second() );
-    Serial.print(datestring);
+int dateToInt(const RtcDateTime& dt) {
+    // Define the Unix epoch (January 1, 1970)
+    const int EPOCH_YEAR = 1970;
+    
+    // Calculate the number of seconds in each component
+    int seconds = 0;
+
+    // Calculate months
+    for (int month = 1; month < dt.Month(); month++) {
+        seconds += daysInMonth(month, dt.Year()) * 24 * 3600;
+    }
+
+    // Calculate days
+    seconds += (dt.Day() - 1) * 24 * 3600;
+
+    // Calculate hours, minutes, and seconds
+    seconds += dt.Hour() * 3600;
+    seconds += dt.Minute() * 60;
+    seconds += dt.Second();
+
+    return seconds;
+}
+
+String timeToString(const RtcDateTime& dt)
+{
+  char datestring[20];
+
+  snprintf_P(datestring, 
+          countof(datestring),
+          PSTR("%02u/%02u/%04u %02u:%02u:%02u"),
+          dt.Month(),
+          dt.Day(),
+          dt.Year(),
+          dt.Hour(),
+          dt.Minute(),
+          dt.Second() );
+
+  return String(datestring);
 }
 
 String convertUID(MFRC522 &mfrc522)
