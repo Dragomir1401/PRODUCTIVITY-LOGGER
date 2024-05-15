@@ -31,6 +31,8 @@ MFRC522 mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance.
 LiquidCrystal_I2C lcd(0x27, 16, 2); // Set the LCD I2C address and display size
 user authorizedUsers[MAX_UIDS];
 int logTimes[MAX_UIDS];
+int lastTimeSpent[MAX_UIDS];
+String reminders[MAX_UIDS];
 int uidCount = 0;
 ThreeWire myWire(4,3,2); // IO, SCLK, CE
 RtcDS1302<ThreeWire> Rtc(myWire);
@@ -54,11 +56,15 @@ void setup() {
   authorizedUsers[uidCount].uid = "E3E40B2F";
   authorizedUsers[uidCount].logged = false;
   logTimes[uidCount] = 0;
+  lastTimeSpent[uidCount] = 0;
+  reminders[uidCount] = "Message manager";
   uidCount++;
 
   authorizedUsers[uidCount].uid = "E37A082F";
   authorizedUsers[uidCount].logged = false;
   logTimes[uidCount] = 0;
+  lastTimeSpent[uidCount] = 0;
+  reminders[uidCount] = "Bugfix feature/IPD17-add-library";
   uidCount++;
 }
 
@@ -89,7 +95,9 @@ void loop() {
           lcd.setCursor(0, 1);
           lcd.print(nowString);
           accessGrantedMelody();
-          delay(2000); // Display log out time for 2 seconds
+          delay(1000); // Display log in for 2 seconds
+          printStringOnLCD(reminders[index]);
+          delay(5000);
         } else {
           RtcDateTime now = Rtc.GetDateTime();
           String nowString = timeToString(now);
@@ -105,15 +113,7 @@ void loop() {
           goodbyeMelody();
           delay(2000); // Display log out time for 2 seconds
 
-          int seconds = dateToInt(now);
-          int spentTime = seconds - logTimes[index];
-          String spentTimeString = formatSpentTime(spentTime);
-
-          lcd.clear();
-          lcd.print("Spent time ");
-          lcd.setCursor(0, 1);
-          lcd.print(spentTimeString);
-          delay(3000); // Display spent time for 3 seconds
+          displayExitTime(now, index);
         }
       } else {
         Serial.println("Access Denied");
@@ -123,10 +123,98 @@ void loop() {
       }
 
       turnOffLEDs();
-      lcd.clear();
-      lcd.print("Scan Card");
     }
   }
+  printIdle();
+}
+
+void printStringOnLCD(String message) {
+  int lcdWidth = 16; // Number of characters per row
+  int lcdHeight = 2; // Number of rows
+
+  lcd.clear();
+
+  int messageLength = message.length();
+
+  // Print the first row
+  for (int i = 0; i < lcdWidth && i < messageLength; i++) {
+    lcd.setCursor(i, 0);
+    lcd.print(message[i]);
+  }
+
+  // Print the second row if the message is longer than the first row
+  if (messageLength > lcdWidth) {
+    for (int i = 0; i < lcdWidth && (lcdWidth + i) < messageLength; i++) {
+      lcd.setCursor(i, 1);
+      lcd.print(message[lcdWidth + i]);
+    }
+  }
+}
+
+void displayExitTime(RtcDateTime now, int index)
+{
+  int seconds = dateToInt(now);
+  int spentTime = seconds - logTimes[index];
+  String spentTimeString = formatSpentTime(spentTime);
+  float difference = calculateTimeSpentPercentage(lastTimeSpent[index], spentTime);
+  lastTimeSpent[index] = spentTime;
+
+  lcd.clear();
+  lcd.print("Spent time ");
+  lcd.setCursor(0, 1);
+  lcd.print(spentTimeString);
+  delay(3000); // Display spent time for 3 seconds
+
+  lcd.clear();
+  lcd.print("From last time ");
+  lcd.setCursor(0, 1);
+  lcd.print(difference);
+  if (difference >= 0)
+  {
+    lcd.print("% increase");
+  }
+  else
+  {
+    lcd.print("% decrease");
+  }
+  delay(5000); // Display spent time for 3 seconds
+}
+
+void printIdle()
+{
+  static unsigned long lastToggleTime = 0;
+  static bool showScanMessage = true;
+  if (millis() - lastToggleTime >= 4000) {
+    lastToggleTime = millis();
+    showScanMessage = !showScanMessage;
+
+    lcd.clear();
+    if (showScanMessage) {
+      lcd.print("Scan Card");
+    } else {
+      int loggedUsersCount = 0;
+      for (int i = 0; i < uidCount; i++) {
+        if (authorizedUsers[i].logged) {
+          loggedUsersCount++;
+        }
+      }
+      lcd.print("Users logged: ");
+      lcd.print(loggedUsersCount);
+    }
+  }
+}
+
+float calculateTimeSpentPercentage(int lastTimeSpent, int currentTimeSpent) {
+  if (lastTimeSpent == 0) {
+    if (currentTimeSpent == 0) {
+      return 0.0; // No change if both are zero
+    } else {
+      return 100.0; // If lastTimeSpent is zero and currentTimeSpent is not zero, it's 100% more
+    }
+  }
+
+  float percentageChange = ((float)(currentTimeSpent - lastTimeSpent) / lastTimeSpent) * 100.0;
+  return percentageChange;
 }
 
 String formatSpentTime(int totalSeconds) {
