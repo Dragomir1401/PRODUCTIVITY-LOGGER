@@ -93,7 +93,6 @@ void setup() {
 void loop() {
   if (adminFlag) {
     adminLogged();
-    return;
   }
 
   // Look for new cards
@@ -119,6 +118,11 @@ void loop() {
           adminFlag = false;
           delay(2000);
         }
+        return;
+      }
+
+      if (adminFlag)
+      {
         return;
       }
 
@@ -170,6 +174,11 @@ void loop() {
 
       turnOffLEDs();
     }
+  }
+
+  if (adminFlag)
+  {
+    return;
   }
   printIdle();
 }
