@@ -4,6 +4,7 @@
 #include <Wire.h>
 #include <RtcDS1302.h>
 #include <ThreeWire.h> 
+#include <ezButton.h>
 
 #define SS_PIN 10
 #define RST_PIN 9
@@ -21,6 +22,14 @@
 
 #define MAX_UIDS 10
 
+#define ADMIN_UID "42487441"
+
+// Joystick pins
+#define JOYSTICK_SW_PIN A0
+#define JOYSTICK_URX_PIN A1
+#define JOYSTICK_URY_PIN A2
+
+
 struct user
 {
   String uid;
@@ -36,6 +45,11 @@ String reminders[MAX_UIDS];
 int uidCount = 0;
 ThreeWire myWire(4,3,2); // IO, SCLK, CE
 RtcDS1302<ThreeWire> Rtc(myWire);
+ezButton joystickButton(JOYSTICK_SW_PIN); // Initialize the joystick button
+int currentEmployeeIndex = 0; // To keep track of the currently displayed employee
+bool detailMode = false; // Sets what type of mode the admin is in
+bool adminFlag = false;
+bool updateDisplay = true;    // Flag to indicate when to update the display
 
 void setup() {
   Serial.begin(9600); // Start serial communication at 9600 baud.
@@ -53,6 +67,14 @@ void setup() {
   turnOffLEDs(); // Turn off all LEDs initially
   Serial.println("Approximate your card to the reader...");
 
+  // Set the correct date and time
+  setDateTime();
+
+  // Initialize joystick pins
+  pinMode(JOYSTICK_URX_PIN, INPUT);
+  pinMode(JOYSTICK_URY_PIN, INPUT);
+  joystickButton.setDebounceTime(50); // Set debounce time for joystick button
+
   authorizedUsers[uidCount].uid = "E3E40B2F";
   authorizedUsers[uidCount].logged = false;
   logTimes[uidCount] = 0;
@@ -69,12 +91,36 @@ void setup() {
 }
 
 void loop() {
+  if (adminFlag) {
+    adminLogged();
+    return;
+  }
+
   // Look for new cards
   if (mfrc522.PICC_IsNewCardPresent()) {
     if (mfrc522.PICC_ReadCardSerial()) {
       Serial.print("Card UID:");
       String readUID = convertUID(mfrc522);
       Serial.println(readUID);
+
+      if (readUID == ADMIN_UID) {
+        if (!adminFlag) {
+          Serial.println("Admin Access Granted");
+          lcd.clear();
+          lcd.print("Admin Access");
+          lcd.setCursor(0, 1);
+          lcd.print("Granted");
+          adminFlag = true;
+          delay(2000);
+        } else {
+          Serial.println("Admin Exited");
+          lcd.clear();
+          lcd.print("Admin Exited");
+          adminFlag = false;
+          delay(2000);
+        }
+        return;
+      }
 
       // Compare the read UID with the stored UID
       if (isAuthorizedUID(readUID)) {
@@ -126,6 +172,98 @@ void loop() {
     }
   }
   printIdle();
+}
+
+void adminLogged() {
+  static int detailIndex = 0;
+  static unsigned long lastDebounceTime = 0;
+  const unsigned long debounceDelay = 300;
+  const unsigned long navigationDelay = 1000; // 1-second delay between changes
+
+  joystickButton.loop(); // Update the button state
+
+  // Adjust the range of the joystick
+  int joyX = analogRead(JOYSTICK_URX_PIN);
+  joyX = map(joyX, 150, 220, 0, 1023); // Map joystick range to 0-1023
+
+  bool buttonPressed = joystickButton.isPressed();
+
+  // Debugging joystick values
+  Serial.print("Joystick X: ");
+  Serial.print(joyX);
+  Serial.print(", Button: ");
+  Serial.println(buttonPressed);
+
+  if (joyX < 400 && (millis() - lastDebounceTime > navigationDelay)) {
+    // Move left
+    if (!detailMode) {
+      currentEmployeeIndex = (currentEmployeeIndex > 0) ? currentEmployeeIndex - 1 : uidCount - 1;
+      updateDisplay = true;
+    } else {
+      // Cycle through details
+      detailIndex = (detailIndex > 0) ? detailIndex - 1 : 2; // Assuming 3 details
+      updateDisplay = true;
+    }
+    lastDebounceTime = millis();
+  } else if (joyX > 600 && (millis() - lastDebounceTime > navigationDelay)) {
+    // Move right
+    if (!detailMode) {
+      currentEmployeeIndex = (currentEmployeeIndex < uidCount - 1) ? currentEmployeeIndex + 1 : 0;
+      updateDisplay = true;
+    } else {
+      // Cycle through details
+      detailIndex = (detailIndex < 2) ? detailIndex + 1 : 0; // Assuming 3 details
+      updateDisplay = true;
+    }
+    lastDebounceTime = millis();
+  }
+
+  if (buttonPressed && (millis() - lastDebounceTime > debounceDelay)) {
+    // Switch between navigation and detail mode
+    detailMode = !detailMode;
+    updateDisplay = true;
+    lastDebounceTime = millis();
+  }
+
+  if (updateDisplay) {
+    if (detailMode) {
+      // Show details for the current employee
+      switch (detailIndex) {
+        case 0:
+          lcd.clear();
+          lcd.print("UID: ");
+          lcd.print(authorizedUsers[currentEmployeeIndex].uid);
+          break;
+        case 1:
+          lcd.clear();
+          lcd.print("Logged: ");
+          lcd.print(authorizedUsers[currentEmployeeIndex].logged ? "Yes" : "No");
+          break;
+        case 2:
+          lcd.clear();
+          lcd.print("Reminder: ");
+          lcd.setCursor(0, 1);
+          lcd.print(reminders[currentEmployeeIndex]);
+          break;
+      }
+    } else {
+      // Show current employee index
+      lcd.clear();
+      lcd.print("Employee ");
+      lcd.print(currentEmployeeIndex + 1);
+    }
+    updateDisplay = false;
+  }
+}
+
+
+
+
+void setDateTime() {
+  // Set the date and time to the current time
+  // Format: (year, month, day, hour, minute, second)
+  RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
+  Rtc.SetDateTime(compiled);
 }
 
 void printStringOnLCD(String message) {
