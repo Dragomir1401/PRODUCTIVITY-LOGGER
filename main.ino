@@ -26,8 +26,8 @@
 
 // Joystick pins
 #define JOYSTICK_SW_PIN A0
-#define JOYSTICK_URX_PIN A1
-#define JOYSTICK_URY_PIN A2
+#define JOYSTICK_URX_PIN A2
+#define JOYSTICK_URY_PIN A1
 
 
 struct user
@@ -181,23 +181,10 @@ void adminLogged() {
   const unsigned long navigationDelay = 1000; // 1-second delay between changes
 
   // Adjust the range of the joystick
-  int joyX = analogRead(JOYSTICK_URX_PIN);
-  joyX = map(joyX, 170, 200, 0, 1023); // Map joystick range to 0-1023
+  int joyX = analogRead(JOYSTICK_URY_PIN);
+  int joyY = analogRead(JOYSTICK_URX_PIN);
 
-  int joyY = analogRead(JOYSTICK_URY_PIN);
-  joyY = map(joyY, 170, 200, 0, 1023); // Map joystick range to 0-1023
-
-  bool buttonPressed = joystickButton.isPressed();
-
-  // Debugging joystick values
-  Serial.print("Joystick X: ");
-  Serial.print(joyX);
-  Serial.print(", Joystick Y: ");
-  Serial.print(joyY);
-  Serial.print(", Button: ");
-  Serial.println(buttonPressed);
-
-  if (joyX < 400 && (millis() - lastDebounceTime > navigationDelay)) {
+  if (joyX < 200 && (millis() - lastDebounceTime > navigationDelay)) {
     // Move left
     if (!detailMode) {
       currentEmployeeIndex = (currentEmployeeIndex > 0) ? currentEmployeeIndex - 1 : uidCount - 1;
@@ -208,7 +195,7 @@ void adminLogged() {
       updateDisplay = true;
     }
     lastDebounceTime = millis();
-  } else if (joyX > 600 && (millis() - lastDebounceTime > navigationDelay)) {
+  } else if (joyX > 800 && (millis() - lastDebounceTime > navigationDelay)) {
     // Move right
     if (!detailMode) {
       currentEmployeeIndex = (currentEmployeeIndex < uidCount - 1) ? currentEmployeeIndex + 1 : 0;
@@ -221,14 +208,14 @@ void adminLogged() {
     lastDebounceTime = millis();
   }
 
-  if (joyY < 400 && (millis() - lastDebounceTime > debounceDelay)) {
+  if (joyY < 200 && (millis() - lastDebounceTime > debounceDelay)) {
     // Toggle into detail mode
     if (!detailMode) {
       detailMode = true;
       updateDisplay = true;
       lastDebounceTime = millis();
     }
-  } else if (joyY > 600 && (millis() - lastDebounceTime > debounceDelay)) {
+  } else if (joyY > 800 && (millis() - lastDebounceTime > debounceDelay)) {
     // Toggle out of detail mode
     if (detailMode) {
       detailMode = false;
