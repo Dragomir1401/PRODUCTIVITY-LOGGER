@@ -180,17 +180,20 @@ void adminLogged() {
   const unsigned long debounceDelay = 300;
   const unsigned long navigationDelay = 1000; // 1-second delay between changes
 
-  joystickButton.loop(); // Update the button state
-
   // Adjust the range of the joystick
   int joyX = analogRead(JOYSTICK_URX_PIN);
-  joyX = map(joyX, 150, 220, 0, 1023); // Map joystick range to 0-1023
+  joyX = map(joyX, 170, 200, 0, 1023); // Map joystick range to 0-1023
+
+  int joyY = analogRead(JOYSTICK_URY_PIN);
+  joyY = map(joyY, 170, 200, 0, 1023); // Map joystick range to 0-1023
 
   bool buttonPressed = joystickButton.isPressed();
 
   // Debugging joystick values
   Serial.print("Joystick X: ");
   Serial.print(joyX);
+  Serial.print(", Joystick Y: ");
+  Serial.print(joyY);
   Serial.print(", Button: ");
   Serial.println(buttonPressed);
 
@@ -218,11 +221,20 @@ void adminLogged() {
     lastDebounceTime = millis();
   }
 
-  if (buttonPressed && (millis() - lastDebounceTime > debounceDelay)) {
-    // Switch between navigation and detail mode
-    detailMode = !detailMode;
-    updateDisplay = true;
-    lastDebounceTime = millis();
+  if (joyY < 400 && (millis() - lastDebounceTime > debounceDelay)) {
+    // Toggle into detail mode
+    if (!detailMode) {
+      detailMode = true;
+      updateDisplay = true;
+      lastDebounceTime = millis();
+    }
+  } else if (joyY > 600 && (millis() - lastDebounceTime > debounceDelay)) {
+    // Toggle out of detail mode
+    if (detailMode) {
+      detailMode = false;
+      updateDisplay = true;
+      lastDebounceTime = millis();
+    }
   }
 
   if (updateDisplay) {
@@ -255,6 +267,7 @@ void adminLogged() {
     updateDisplay = false;
   }
 }
+
 
 
 
