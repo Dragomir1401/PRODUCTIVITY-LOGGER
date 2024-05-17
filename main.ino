@@ -149,14 +149,15 @@ void loop() {
           lcd.clear();
           lcd.print("Welcome");
           lcd.setCursor(0, 1);
-          lcd.print(names[index]);
+          lcd.print(names[uidToIndexMap(readUID)]);
           delay(2000);
 
           lcd.clear();
           lcd.print("Reminder");
           delay(2000);
 
-          printStringOnLCD(reminders[index]);
+          lcd.clear();
+          lcd.print(reminders[uidToIndexMap(readUID)]);
           delay(2000); // Display log in for 2 seconds
         } else {
           RtcDateTime now = Rtc.GetDateTime();
@@ -635,6 +636,20 @@ int uidToIndex(String uid)
   }
 
   return -1;
+}
+
+int uidToIndexMap(String uid) {
+  if (uid == "E3E40B2F") {
+    return 0;
+  } else if (uid == "E37A082F") {
+    return 1;
+  } else if (uid == "42487441") {
+    return 2;
+  } else if (uid == "53F7CA0E") {
+    return 3;
+  } else {
+    return -1; // Return -1 if UID is not found
+  }
 }
 
 bool isAuthorizedUID(String uid) {
