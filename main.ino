@@ -354,8 +354,6 @@ void adminLogged() {
         case 3:
           lcd.print("Last access:");
           lcd.setCursor(0, 1);
-          Serial.println(currentEmployeeIndex);
-          Serial.println(lastAccess[currentEmployeeIndex]);
           lcd.print(lastAccess[currentEmployeeIndex]);
           break;
         case 4:
@@ -410,6 +408,7 @@ void addCardAccess() {
     authorizedUsers[uidCount].logged = false;
     logTimes[uidCount] = 0;
     lastTimeSpent[uidCount] = 0;
+    lastAccess[uidCount] = "No Access";
     uidCount++;
     lcd.clear();
     lcd.print("Card Added:");
