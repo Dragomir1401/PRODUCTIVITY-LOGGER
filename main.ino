@@ -4,7 +4,6 @@
 #include <Wire.h>
 #include <RtcDS1302.h>
 #include <ThreeWire.h> 
-#include <ezButton.h>
 
 #define SS_PIN 10
 #define RST_PIN 9
@@ -42,13 +41,12 @@ user authorizedUsers[MAX_UIDS];
 int logTimes[MAX_UIDS];
 int lastTimeSpent[MAX_UIDS];
 String reminders[MAX_UIDS];
+String names[MAX_UIDS];
 int uidCount = 0;
 ThreeWire myWire(4,3,2); // IO, SCLK, CE
 RtcDS1302<ThreeWire> Rtc(myWire);
-ezButton joystickButton(JOYSTICK_SW_PIN); // Initialize the joystick button
 int currentEmployeeIndex = 0; // To keep track of the currently displayed employee
 bool detailMode = false; // Sets what type of mode the admin is in
-bool employeeMode = false; // Sets what type of mode the admin is in
 bool adminFlag = false;
 bool updateDisplay = true;    // Flag to indicate when to update the display
 int mainMenuIndex = 0; // To keep track of the current main menu option
@@ -76,21 +74,15 @@ void setup() {
   // Initialize joystick pins
   pinMode(JOYSTICK_URX_PIN, INPUT);
   pinMode(JOYSTICK_URY_PIN, INPUT);
-  joystickButton.setDebounceTime(50); // Set debounce time for joystick button
 
-  authorizedUsers[uidCount].uid = "E3E40B2F";
-  authorizedUsers[uidCount].logged = false;
-  logTimes[uidCount] = 0;
-  lastTimeSpent[uidCount] = 0;
-  reminders[uidCount] = "Message manager";
-  uidCount++;
-
-  authorizedUsers[uidCount].uid = "E37A082F";
-  authorizedUsers[uidCount].logged = false;
-  logTimes[uidCount] = 0;
-  lastTimeSpent[uidCount] = 0;
-  reminders[uidCount] = "Bugfix feature/IPD17-add-library";
-  uidCount++;
+  reminders[0] = "Message manager";
+  names[0] = "Popescu Marius";
+  reminders[1] = "Bugfix feature/IPD17-add-library";
+  names[1] = "Gheorghe Hagi";
+  reminders[2] = "Call HR";
+  names[2] = "Lionel Messi";
+  reminders[3] = "Respond to product emails";
+  names[3] = "Nadia Marin";
 }
 
 void loop() {
@@ -153,8 +145,19 @@ void loop() {
           lcd.print(nowString);
           accessGrantedMelody();
           delay(1000); // Display log in for 2 seconds
+
+          lcd.clear();
+          lcd.print("Welcome");
+          lcd.setCursor(0, 1);
+          lcd.print(names[index]);
+          delay(2000);
+
+          lcd.clear();
+          lcd.print("Reminder");
+          delay(2000);
+
           printStringOnLCD(reminders[index]);
-          delay(5000);
+          delay(2000); // Display log in for 2 seconds
         } else {
           RtcDateTime now = Rtc.GetDateTime();
           String nowString = timeToString(now);
@@ -252,6 +255,9 @@ void adminLogged() {
       // Go back to employee list
       menuLevel = 1;
     } else if (menuLevel == 1) {
+      lcd.clear();
+      lcd.print("Exiting...");
+      delay(1000);
       // Go back to main menu
       menuLevel = 0;
     }
@@ -268,21 +274,31 @@ void adminLogged() {
           lcd.print("See Employees");
           break;
         case 1:
-          lcd.print("Add Card Access");
+          lcd.print("Add Access");
           break;
         case 2:
-          lcd.print("Remove Card Access");
+          lcd.print("Remove Access");
           break;
         case 3:
           lcd.print("Total Number");
           break;
       }
-    } else if (menuLevel == 1) {
+    }
+    else if (uidCount == 0)
+    {
+      lcd.clear();
+      lcd.print("No Employees");
+      menuLevel = 1;
+    } 
+    else if (menuLevel == 1) 
+    {
       // Show employee list
       lcd.clear();
       lcd.print("Employee ");
       lcd.print(currentEmployeeIndex + 1);
-    } else if (menuLevel == 2) {
+    } 
+    else if (menuLevel == 2)
+    {
       // Show employee details
       lcd.clear();
       switch (detailIndex) {
@@ -322,11 +338,26 @@ void addCardAccess() {
 
   if (mfrc522.PICC_ReadCardSerial()) {
     String newUID = convertUID(mfrc522);
+    int target = uidToIndex(newUID);
+    if (target >= 0)
+    {
+      for (int index = 0; index < uidCount; index++)
+      {
+        if (index == target)
+        {
+          lcd.clear();
+          lcd.print("User Already");
+          lcd.setCursor(0, 1);
+          lcd.print("Exists");
+          delay(2000);
+          return;
+        }
+      }
+    }
     authorizedUsers[uidCount].uid = newUID;
     authorizedUsers[uidCount].logged = false;
     logTimes[uidCount] = 0;
     lastTimeSpent[uidCount] = 0;
-    reminders[uidCount] = "New User";
     uidCount++;
     lcd.clear();
     lcd.print("Card Added:");
@@ -342,7 +373,10 @@ void addCardAccess() {
 
 void removeCardAccess() {
   lcd.clear();
-  lcd.print("Scan card to remove");
+  lcd.print("Scan card to");
+  lcd.setCursor(0, 1);
+  lcd.print("Remove");
+
   while (!mfrc522.PICC_IsNewCardPresent()) {
     int joyY = analogRead(JOYSTICK_URX_PIN);
     if (joyY > 800) {
@@ -373,7 +407,7 @@ void removeCardAccess() {
       delay(2000);
     } else {
       lcd.clear();
-      lcd.print("Card Not Found");
+      lcd.print("User Not Found");
       delay(2000);
     }
   } else {
@@ -599,6 +633,8 @@ int uidToIndex(String uid)
       return i;
     }
   }
+
+  return -1;
 }
 
 bool isAuthorizedUID(String uid) {
