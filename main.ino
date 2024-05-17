@@ -22,7 +22,7 @@
 
 #define MAX_UIDS 10
 
-#define ADMIN_UID "42487441"
+#define ADMIN_UID "53F7CA0E"
 
 // Joystick pins
 #define JOYSTICK_SW_PIN A0
@@ -48,8 +48,11 @@ RtcDS1302<ThreeWire> Rtc(myWire);
 ezButton joystickButton(JOYSTICK_SW_PIN); // Initialize the joystick button
 int currentEmployeeIndex = 0; // To keep track of the currently displayed employee
 bool detailMode = false; // Sets what type of mode the admin is in
+bool employeeMode = false; // Sets what type of mode the admin is in
 bool adminFlag = false;
 bool updateDisplay = true;    // Flag to indicate when to update the display
+int mainMenuIndex = 0; // To keep track of the current main menu option
+int menuLevel = 0; // 0: Main Menu, 1: Employee List, 2: Employee Details
 
 void setup() {
   Serial.begin(9600); // Start serial communication at 9600 baud.
@@ -109,15 +112,19 @@ void loop() {
           lcd.print("Admin Access");
           lcd.setCursor(0, 1);
           lcd.print("Granted");
+          adminAccessMelody();
           adminFlag = true;
           delay(2000);
         } else {
           Serial.println("Admin Exited");
           lcd.clear();
           lcd.print("Admin Exited");
+          adminGoodbyeMelody();
           adminFlag = false;
           delay(2000);
         }
+
+        turnOffLEDs();
         return;
       }
 
@@ -183,6 +190,7 @@ void loop() {
   printIdle();
 }
 
+
 void adminLogged() {
   static int detailIndex = 0;
   static unsigned long lastDebounceTime = 0;
@@ -194,80 +202,204 @@ void adminLogged() {
   int joyY = analogRead(JOYSTICK_URX_PIN);
 
   if (joyX < 200 && (millis() - lastDebounceTime > navigationDelay)) {
-    // Move left
-    if (!detailMode) {
+    if (menuLevel == 0) {
+      // Move left in main menu
+      mainMenuIndex = (mainMenuIndex > 0) ? mainMenuIndex - 1 : 3;
+    } else if (menuLevel == 1) {
+      // Move left in employee list
       currentEmployeeIndex = (currentEmployeeIndex > 0) ? currentEmployeeIndex - 1 : uidCount - 1;
-      updateDisplay = true;
-    } else {
-      // Cycle through details
-      detailIndex = (detailIndex > 0) ? detailIndex - 1 : 2; // Assuming 3 details
-      updateDisplay = true;
+    } else if (menuLevel == 2) {
+      // Cycle left through employee details
+      detailIndex = (detailIndex > 0) ? detailIndex - 1 : 2;
     }
+    updateDisplay = true;
     lastDebounceTime = millis();
   } else if (joyX > 800 && (millis() - lastDebounceTime > navigationDelay)) {
-    // Move right
-    if (!detailMode) {
+    if (menuLevel == 0) {
+      // Move right in main menu
+      mainMenuIndex = (mainMenuIndex < 3) ? mainMenuIndex + 1 : 0;
+    } else if (menuLevel == 1) {
+      // Move right in employee list
       currentEmployeeIndex = (currentEmployeeIndex < uidCount - 1) ? currentEmployeeIndex + 1 : 0;
-      updateDisplay = true;
-    } else {
-      // Cycle through details
-      detailIndex = (detailIndex < 2) ? detailIndex + 1 : 0; // Assuming 3 details
-      updateDisplay = true;
+    } else if (menuLevel == 2) {
+      // Cycle right through employee details
+      detailIndex = (detailIndex < 2) ? detailIndex + 1 : 0;
     }
+    updateDisplay = true;
     lastDebounceTime = millis();
   }
 
   if (joyY < 200 && (millis() - lastDebounceTime > debounceDelay)) {
-    // Toggle into detail mode
-    if (!detailMode) {
-      detailMode = true;
-      updateDisplay = true;
-      lastDebounceTime = millis();
+    if (menuLevel == 0) {
+      // Select option in main menu
+      if (mainMenuIndex == 0) {
+        menuLevel = 1; // Go to employee list
+      } else if (mainMenuIndex == 1) {
+        addCardAccess();
+      } else if (mainMenuIndex == 2) {
+        removeCardAccess();
+      } else if (mainMenuIndex == 3) {
+        showTotalNumber();
+      }
+    } else if (menuLevel == 1) {
+      // Go to employee details
+      menuLevel = 2;
     }
+    updateDisplay = true;
+    lastDebounceTime = millis();
   } else if (joyY > 800 && (millis() - lastDebounceTime > debounceDelay)) {
-    // Toggle out of detail mode
-    if (detailMode) {
-      detailMode = false;
-      updateDisplay = true;
-      lastDebounceTime = millis();
+    if (menuLevel == 2) {
+      // Go back to employee list
+      menuLevel = 1;
+    } else if (menuLevel == 1) {
+      // Go back to main menu
+      menuLevel = 0;
     }
+    updateDisplay = true;
+    lastDebounceTime = millis();
   }
 
   if (updateDisplay) {
-    if (detailMode) {
-      // Show details for the current employee
+    if (menuLevel == 0) {
+      // Show main menu options
+      lcd.clear();
+      switch (mainMenuIndex) {
+        case 0:
+          lcd.print("See Employees");
+          break;
+        case 1:
+          lcd.print("Add Card Access");
+          break;
+        case 2:
+          lcd.print("Remove Card Access");
+          break;
+        case 3:
+          lcd.print("Total Number");
+          break;
+      }
+    } else if (menuLevel == 1) {
+      // Show employee list
+      lcd.clear();
+      lcd.print("Employee ");
+      lcd.print(currentEmployeeIndex + 1);
+    } else if (menuLevel == 2) {
+      // Show employee details
+      lcd.clear();
       switch (detailIndex) {
         case 0:
-          lcd.clear();
           lcd.print("UID: ");
           lcd.print(authorizedUsers[currentEmployeeIndex].uid);
           break;
         case 1:
-          lcd.clear();
           lcd.print("Logged: ");
           lcd.print(authorizedUsers[currentEmployeeIndex].logged ? "Yes" : "No");
           break;
         case 2:
-          lcd.clear();
           lcd.print("Reminder: ");
           lcd.setCursor(0, 1);
           lcd.print(reminders[currentEmployeeIndex]);
           break;
       }
-    } else {
-      // Show current employee index
-      lcd.clear();
-      lcd.print("Employee ");
-      lcd.print(currentEmployeeIndex + 1);
     }
     updateDisplay = false;
   }
 }
 
+void addCardAccess() {
+  lcd.clear();
+  lcd.print("Scan new card...");
+  while (!mfrc522.PICC_IsNewCardPresent()) {
+    int joyY = analogRead(JOYSTICK_URX_PIN);
+    if (joyY > 800) {
+      // Exit add card mode
+      lcd.clear();
+      lcd.print("Exiting...");
+      delay(1000);
+      return;
+    }
+    delay(100); // Wait for a new card to be present
+  }
 
+  if (mfrc522.PICC_ReadCardSerial()) {
+    String newUID = convertUID(mfrc522);
+    authorizedUsers[uidCount].uid = newUID;
+    authorizedUsers[uidCount].logged = false;
+    logTimes[uidCount] = 0;
+    lastTimeSpent[uidCount] = 0;
+    reminders[uidCount] = "New User";
+    uidCount++;
+    lcd.clear();
+    lcd.print("Card Added:");
+    lcd.setCursor(0, 1);
+    lcd.print(newUID);
+    delay(2000);
+  } else {
+    lcd.clear();
+    lcd.print("Card Read Error");
+    delay(2000);
+  }
+}
 
+void removeCardAccess() {
+  lcd.clear();
+  lcd.print("Scan card to remove");
+  while (!mfrc522.PICC_IsNewCardPresent()) {
+    int joyY = analogRead(JOYSTICK_URX_PIN);
+    if (joyY > 800) {
+      // Exit remove card mode
+      lcd.clear();
+      lcd.print("Exiting...");
+      delay(1000);
+      return;
+    }
+    delay(100); // Wait for a new card to be present
+  }
 
+  if (mfrc522.PICC_ReadCardSerial()) {
+    String removeUID = convertUID(mfrc522);
+    int index = uidToIndex(removeUID);
+    if (index >= 0) {
+      for (int i = index; i < uidCount - 1; i++) {
+        authorizedUsers[i] = authorizedUsers[i + 1];
+        logTimes[i] = logTimes[i + 1];
+        lastTimeSpent[i] = lastTimeSpent[i + 1];
+        reminders[i] = reminders[i + 1];
+      }
+      uidCount--;
+      lcd.clear();
+      lcd.print("Card Removed:");
+      lcd.setCursor(0, 1);
+      lcd.print(removeUID);
+      delay(2000);
+    } else {
+      lcd.clear();
+      lcd.print("Card Not Found");
+      delay(2000);
+    }
+  } else {
+    lcd.clear();
+    lcd.print("Card Read Error");
+    delay(2000);
+  }
+}
 
+void showTotalNumber() {
+  lcd.clear();
+  lcd.print("Total Users: ");
+  lcd.setCursor(0, 1);
+  lcd.print(uidCount);
+  while (true) {
+    int joyY = analogRead(JOYSTICK_URX_PIN);
+    if (joyY > 800) {
+      // Exit total number mode
+      lcd.clear();
+      lcd.print("Exiting...");
+      delay(1000);
+      return;
+    }
+    delay(100);
+  }
+}
 void setDateTime() {
   // Set the date and time to the current time
   // Format: (year, month, day, hour, minute, second)
@@ -487,7 +619,7 @@ void turnOffLEDs() {
 void goodbyeMelody() {
   digitalWrite(BUZZER_PIN, LOW); // Ensure buzzer is off initially
   turnOffLEDs();
-  digitalWrite(BLUE_PIN, HIGH); // Turn blue LED on (assuming you use BLUE_PIN for indication)
+  digitalWrite(BLUE_PIN, HIGH); // Turn blue LED on
 
   tone(BUZZER_PIN, NOTE_G5, 200); // G5
   delay(250);
@@ -498,6 +630,48 @@ void goodbyeMelody() {
 
   noTone(BUZZER_PIN); // Stop any tone
   digitalWrite(BLUE_PIN, LOW); // Turn off LED after melody
+  digitalWrite(BUZZER_PIN, HIGH); // Explicitly turn off buzzer after use
+}
+
+void adminGoodbyeMelody() {
+  digitalWrite(BUZZER_PIN, LOW); // Ensure buzzer is off initially
+  turnOffLEDs();
+  // Turn the LED yellow
+  analogWrite(RED_PIN, 255);  // Full brightness
+  analogWrite(GREEN_PIN, 55); // Full brightness
+  analogWrite(BLUE_PIN, 0);   // Off
+
+  tone(BUZZER_PIN, NOTE_C5, 200); // G5
+  delay(250);
+  tone(BUZZER_PIN, NOTE_G5, 200); // E5
+  delay(250);
+  tone(BUZZER_PIN, NOTE_E5, 200); // C5
+  delay(250);
+
+  noTone(BUZZER_PIN); // Stop any tone
+  turnOffLEDs();
+
+  digitalWrite(BUZZER_PIN, HIGH); // Explicitly turn off buzzer after use
+}
+
+void adminAccessMelody()
+{
+  digitalWrite(BUZZER_PIN, LOW); // Ensure buzzer is off initially
+  turnOffLEDs();
+
+  // Turn the LED yellow
+  analogWrite(RED_PIN, 255);  // Full brightness
+  analogWrite(GREEN_PIN, 55); // Full brightness
+  analogWrite(BLUE_PIN, 0);   // Off
+          
+  tone(BUZZER_PIN, NOTE_E5, 250); // C5
+  delay(350);
+  tone(BUZZER_PIN, NOTE_C5, 250); // E5
+  delay(350);
+
+  noTone(BUZZER_PIN); // Stop any tone
+  turnOffLEDs();
+
   digitalWrite(BUZZER_PIN, HIGH); // Explicitly turn off buzzer after use
 }
 
