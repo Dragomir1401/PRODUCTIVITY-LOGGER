@@ -42,6 +42,7 @@ int logTimes[MAX_UIDS];
 int lastTimeSpent[MAX_UIDS];
 const char* reminders[MAX_UIDS];
 const char* names[MAX_UIDS];
+String lastAccess[MAX_UIDS];
 int uidCount = 0;
 ThreeWire myWire(4,3,2); // IO, SCLK, CE
 RtcDS1302<ThreeWire> Rtc(myWire);
@@ -132,8 +133,8 @@ void loop() {
         if (!authorizedUsers[index].logged) {
           RtcDateTime now = Rtc.GetDateTime();
           String nowString = timeToString(now);
-          Serial.println(nowString);
-          Serial.println();
+          lastAccess[index] = nowString;
+          Serial.println(lastAccess[index]);
 
           authorizedUsers[index].logged = true;
           logTimes[index] = dateToInt(now);
@@ -168,7 +169,6 @@ void loop() {
           RtcDateTime now = Rtc.GetDateTime();
           String nowString = timeToString(now);
           Serial.println(nowString);
-          Serial.println();
 
           authorizedUsers[index].logged = false;
           Serial.println("Logging out...");
@@ -238,7 +238,7 @@ void adminLogged() {
       currentEmployeeIndex = (currentEmployeeIndex > 0) ? currentEmployeeIndex - 1 : uidCount - 1;
     } else if (menuLevel == 2) {
       // Cycle left through employee details
-      detailIndex = (detailIndex > 0) ? detailIndex - 1 : 2;
+      detailIndex = (detailIndex > 0) ? detailIndex - 1 : 4;
     }
     updateDisplay = true;
     lastDebounceTime = millis();
@@ -251,7 +251,7 @@ void adminLogged() {
       currentEmployeeIndex = (currentEmployeeIndex < uidCount - 1) ? currentEmployeeIndex + 1 : 0;
     } else if (menuLevel == 2) {
       // Cycle right through employee details
-      detailIndex = (detailIndex < 2) ? detailIndex + 1 : 0;
+      detailIndex = (detailIndex < 4) ? detailIndex + 1 : 0;
     }
     updateDisplay = true;
     lastDebounceTime = millis();
@@ -347,9 +347,25 @@ void adminLogged() {
           lcd.print(authorizedUsers[currentEmployeeIndex].logged ? "Yes" : "No");
           break;
         case 2:
-          lcd.print("Reminder: ");
+          lcd.print("Reminder:");
           lcd.setCursor(0, 1);
           lcd.print(reminders[currentEmployeeIndex]);
+          break;
+        case 3:
+          lcd.print("Last access:");
+          lcd.setCursor(0, 1);
+          Serial.println(currentEmployeeIndex);
+          Serial.println(lastAccess[currentEmployeeIndex]);
+          lcd.print(lastAccess[currentEmployeeIndex]);
+          break;
+        case 4:
+          lcd.print("Last time spent:");
+          lcd.setCursor(0, 1);
+          String spentTimeString = formatSpentTime(lastTimeSpent[currentEmployeeIndex]);
+          lcd.print(spentTimeString);
+          break;
+        default:
+          lcd.print("Default");
           break;
       }
     }
@@ -631,8 +647,6 @@ String convertUID(MFRC522 &mfrc522)
     readUID += String(mfrc522.uid.uidByte[i] < 0x10 ? "0" : "") + String(mfrc522.uid.uidByte[i], HEX);
   }
   readUID.toUpperCase();
-
-  Serial.println(readUID);
 
   return readUID;
 }
