@@ -40,8 +40,8 @@ LiquidCrystal_I2C lcd(0x27, 16, 2); // Set the LCD I2C address and display size
 user authorizedUsers[MAX_UIDS];
 int logTimes[MAX_UIDS];
 int lastTimeSpent[MAX_UIDS];
-String reminders[MAX_UIDS];
-String names[MAX_UIDS];
+const char* reminders[MAX_UIDS];
+const char* names[MAX_UIDS];
 int uidCount = 0;
 ThreeWire myWire(4,3,2); // IO, SCLK, CE
 RtcDS1302<ThreeWire> Rtc(myWire);
@@ -75,13 +75,13 @@ void setup() {
   pinMode(JOYSTICK_URX_PIN, INPUT);
   pinMode(JOYSTICK_URY_PIN, INPUT);
 
-  reminders[0] = "Message manager";
+  reminders[0] = "Message manager for planning";
   names[0] = "Popescu Marius";
   reminders[1] = "Bugfix feature/IPD17-add-library";
   names[1] = "Gheorghe Hagi";
-  reminders[2] = "Call HR";
+  reminders[2] = "Call HR for employment contract";
   names[2] = "Lionel Messi";
-  reminders[3] = "Respond to product emails";
+  reminders[3] = "Respond to product team emails";
   names[3] = "Nadia Marin";
 }
 
@@ -148,18 +148,23 @@ void loop() {
 
           lcd.clear();
           lcd.print("Welcome");
+          Serial.println("Welcome");
           lcd.setCursor(0, 1);
           lcd.print(names[uidToIndexMap(readUID)]);
+          Serial.println(names[uidToIndexMap(readUID)]);
           delay(2000);
 
           lcd.clear();
           lcd.print("Reminder");
+          Serial.println("Reminder");
           delay(2000);
 
-          lcd.clear();
-          lcd.print(reminders[uidToIndexMap(readUID)]);
+          printStringOnLCD(reminders[uidToIndexMap(readUID)]);
+          Serial.println(reminders[uidToIndexMap(readUID)]);
           delay(2000); // Display log in for 2 seconds
-        } else {
+        } 
+        else
+        {
           RtcDateTime now = Rtc.GetDateTime();
           String nowString = timeToString(now);
           Serial.println(nowString);
@@ -194,6 +199,25 @@ void loop() {
   printIdle();
 }
 
+void printStringOnLCD(const char* message) {
+  int lcdWidth = 16; // Number of characters per row
+
+  lcd.clear();
+
+  // Print the first row
+  for (int i = 0; i < lcdWidth && i < strlen(message); i++) {
+    lcd.setCursor(i, 0);
+    lcd.print(message[i]);
+  }
+
+  // Print the second row if the message is longer than the first row
+  if (strlen(message) > lcdWidth) {
+    for (int i = 0; i < lcdWidth && (lcdWidth + i) < strlen(message); i++) {
+      lcd.setCursor(i, 1);
+      lcd.print(message[lcdWidth + i]);
+    }
+  }
+}
 
 void adminLogged() {
   static int detailIndex = 0;
@@ -273,15 +297,23 @@ void adminLogged() {
       switch (mainMenuIndex) {
         case 0:
           lcd.print("See Employees");
+          lcd.setCursor(3, 1);
+          lcd.print("--page 1--");
           break;
         case 1:
           lcd.print("Add Access");
+          lcd.setCursor(3, 1);
+          lcd.print("--page 2--");
           break;
         case 2:
           lcd.print("Remove Access");
+          lcd.setCursor(3, 1);
+          lcd.print("--page 3--");
           break;
         case 3:
           lcd.print("Total Number");
+          lcd.setCursor(3, 1);
+          lcd.print("--page 4--");
           break;
       }
     }
@@ -295,8 +327,11 @@ void adminLogged() {
     {
       // Show employee list
       lcd.clear();
-      lcd.print("Employee ");
+      lcd.print(names[uidToIndexMap(authorizedUsers[currentEmployeeIndex].uid)]);
+      lcd.setCursor(3, 1);
+      lcd.print("--page ");
       lcd.print(currentEmployeeIndex + 1);
+      lcd.print("--");
     } 
     else if (menuLevel == 2)
     {
@@ -442,29 +477,6 @@ void setDateTime() {
   Rtc.SetDateTime(compiled);
 }
 
-void printStringOnLCD(String message) {
-  int lcdWidth = 16; // Number of characters per row
-  int lcdHeight = 2; // Number of rows
-
-  lcd.clear();
-
-  int messageLength = message.length();
-
-  // Print the first row
-  for (int i = 0; i < lcdWidth && i < messageLength; i++) {
-    lcd.setCursor(i, 0);
-    lcd.print(message[i]);
-  }
-
-  // Print the second row if the message is longer than the first row
-  if (messageLength > lcdWidth) {
-    for (int i = 0; i < lcdWidth && (lcdWidth + i) < messageLength; i++) {
-      lcd.setCursor(i, 1);
-      lcd.print(message[lcdWidth + i]);
-    }
-  }
-}
-
 void displayExitTime(RtcDateTime now, int index)
 {
   int seconds = dateToInt(now);
@@ -491,7 +503,7 @@ void displayExitTime(RtcDateTime now, int index)
   {
     lcd.print("% decrease");
   }
-  delay(5000); // Display spent time for 3 seconds
+  delay(4000); // Display spent time for 3 seconds
 }
 
 void printIdle()
