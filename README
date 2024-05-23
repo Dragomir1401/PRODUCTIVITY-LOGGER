@@ -1,1 +1,278 @@
 See https://ocw.cs.pub.ro/courses/pm/prj2024/mdinica/andrei.dragomir1401
+
+---------------------------------------Introduction
+Author: Dragomir Andrei - 332CA - andrei.dragomir1401@stud.acs.pub.ro
+
+-----------------------------------------Purpose
+The project represents a tracking and information alert system for corporate
+employees. The goal is for employers to monitor employee accesses to the office
+and track their working times. The aim is to sell this system to companies.
+
+-------------------------------------Functionality
+Using a simple access card, employees can log into the system when they arrive at the office,
+and their working hours will be automatically tracked until they log out.
+Additionally, employees receive reminders upon arrival and feedback regarding
+schedule changes upon departure. Employers can check each employee's last login
+time and other details.
+
+--------------------------------------General Description
+---------Microcontroller
+The project utilizes an Arduino board as the main controller, which communicates with the other components of the system. The Arduino board is sufficient as the central control point for this project.
+
+---------------------------------------Other Components
+RFID Card Reader: Used for logging in with an RFID card.
+Buzzer and LED Indicator: Provide feedback upon logging.
+Real-Time Clock (RTC): Provides real-time logging.
+Joystick: Allows the admin to navigate through the menu.
+Project Diagram
+Hardware Design
+Arduino UNO R3
+RFID-RC522
+HW-479 RGB LED
+TMB12A05 BUZZER
+LCD I2C
+Joystick
+MH Real Time Clock Module 2
+
+
+-----------------------------------------------Software Design
+-----------Current State of Software Implementation
+
+The current state of the software includes a fully functional RFID access system, LCD display, and joystick 
+for navigating administrative menus. Authorized users can access personalized reminders and log their time spent.
+The main code utilizes external libraries and dedicated functions for each component.
+
+Motivation for Library Choices
+The libraries MFRC522, LiquidCrystal_I2C, Wire, and RtcDS1302 are essential for communication with the RFID
+reader, LCD display, and real-time clock (RTC). They simplify interfacing with the hardware and allow for 
+rapid implementation of necessary functions. For example, initializing the library structures:
+
+MFRC522 mfrc522(SS_PIN, RST_PIN);
+mfrc522.PCD_Init();
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+lcd.init();
+lcd.backlight();
+RtcDS1302 Rtc(myWire);
+Rtc.Begin();
+
+-------------------------------------Project Novelty
+The novelty of the project lies in the integration of a system for visualizing employee times and productivity, opening up the possibility of commercialization to companies.
+
+--------------------------------------Justification for Using Laboratory Functionalities
+The project uses functionalities studied in various labs to interact with hardware components:
+
+Lab 0: GPIO - Configuring and using GPIO pins for LEDs and buzzer:
+pinMode(GREEN_PIN, OUTPUT);
+digitalWrite(GREEN_PIN, HIGH);
+
+Laboratorul 1: UART - Comunicarea serială pentru debug și afișarea mesajelor în consola serială:
+Serial.begin(9600);
+Serial.println("Approximate your card to the reader...");
+
+Lab 3: Timers, PWM - Using PWM to control the buzzer:
+tone(BUZZER_PIN, NOTE_C5, 250);
+
+Lab 4: ADC - Reading analog values from the joystick:
+int joyX = analogRead(JOYSTICK_URY_PIN);
+if (joyX < 200) { /* move left */ }
+
+Lab 5: SPI - Communicating with the RFID reader:
+SPI.begin();
+mfrc522.PCD_Init();
+
+Lab 6: I2C - Communicating with the LCD and RTC:
+Wire.begin();
+lcd.init();
+Rtc.Begin();
+
+
+----------------------------------------Project Structure, Interaction, and Validation
+The project structure is organized into specific functions for each component and user interaction aspect. The main code is organized into configuration functions, main loop functions, and hardware manipulation functions.
+
+-----------Setup Function:
+
+Initializes hardware components and global variables:
+void setup() {
+    // Initialize serial communication, I2C, SPI, LCD, RTC, GPIO pins, etc.
+}
+
+Loop Function:
+Manages access logic and administrative menu navigation:
+void loop() {
+     // -> Check admin
+        // -> Check card proximity
+           // -> Check access/exit
+           // -> Print access messages
+              // -> Log timer
+              // -> Turn on LED
+              // -> Start buzzer
+     // -> Print idle messages, etc.
+}
+
+Auxiliary Functions:
+Manage hardware components and user interaction, such as displaying messages on the LCD, reading joystick values, and operating LEDs and buzzer:
+void adminLogged() {
+    // Manage administrative menus when admin is logged in
+}
+
+void handleAdminAccess() {
+    // Manage admin access to the system
+}
+
+void handleUserAccess(String readUID) {
+    // Manage regular user access to the system
+}
+
+void displayAccessDenied() {
+    // Display access denied message
+}
+
+void printIdle() {
+    // Display idle message
+}
+
+void printStringOnLCD(const char *message) {
+    // Display a message on the LCD screen
+}
+
+String convertUID(MFRC522 &mfrc522) {
+    // Convert the UID read from the RFID card to a string
+}
+
+bool isAuthorizedUID(String uid) {
+    // Check if the read UID is authorized
+}
+
+void turnOffLEDs() {
+    // Turn off all LEDs
+}
+
+void setDateTime() {
+    // Set the date and time in the RTC
+}
+
+
+Validation of functionalities was carried out through individual tests for each hardware component and integrated tests 
+for the entire system, ensuring correct and efficient operation.
+
+----------------------Attach a Demo Video with Explanations
+The demo video will showcase user authentication, reminders display, logging of access time, and menu navigation.
+Explanations will detail the operation of each component.
+
+--------------------------Calibration of Sensor Elements
+Calibration of sensor elements was performed to ensure correct and precise operation of each hardware component. 
+Methods used for calibrating the joystick, RFID, LCD, buzzer, and LEDs are described below.
+
+-------Joystick Calibration:
+Reading and calibrating joystick values:
+
+int joyX = analogRead(JOYSTICK_URX_PIN);
+int joyY = analogRead(JOYSTICK_URY_PIN);
+
+if (joyX < 200) {
+    // Move left
+} else if (joyX > 800) {
+    // Move right
+}
+
+if (joyY < 200) {
+    // Move up
+} else if (joyY > 800) {
+    // Move down
+}
+
+
+---------RFID Reader Calibration:
+MFRC522 mfrc522(SS_PIN, RST_PIN);
+mfrc522.PCD_Init();
+if (mfrc522.PICC_IsNewCardPresent()) {
+    if (mfrc522.PICC_ReadCardSerial()) {
+        // Process RFID card
+    }
+}
+
+
+---------LCD Initialization and Calibration:
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+lcd.init();
+lcd.backlight();
+lcd.clear();
+lcd.print("System Ready");
+
+
+---------Buzzer Configuration and Calibration:
+pinMode(BUZZER_PIN, OUTPUT);
+digitalWrite(BUZZER_PIN, HIGH); // Ensure buzzer is off initially
+
+void playTone(int tone, int duration) {
+    digitalWrite(BUZZER_PIN, LOW);
+    tone(BUZZER_PIN, tone, duration);
+    delay(duration);
+    noTone(BUZZER_PIN);
+    digitalWrite(BUZZER_PIN, HIGH);
+}
+
+playTone(NOTE_C5, 250);
+
+
+----------LED Calibration:
+pinMode(GREEN_PIN, OUTPUT);
+pinMode(RED_PIN, OUTPUT);
+pinMode(BLUE_PIN, OUTPUT);
+
+void turnOffLEDs() {
+    digitalWrite(GREEN_PIN, LOW);
+    digitalWrite(RED_PIN, LOW);
+    digitalWrite(BLUE_PIN, LOW);
+}
+
+void setLEDColor(int red, int green, int blue) {
+    analogWrite(RED_PIN, red);
+    analogWrite(GREEN_PIN, green);
+    analogWrite(BLUE_PIN, blue);
+}
+
+setLEDColor(255, 0, 0); // Set LED to red
+
+
+-----------------------------Explanation of Optimizations
+Optimization of Reading and Comparing RFID UIDs:
+This optimization ensures rapid reading and efficient comparison of RFID card UIDs. 
+The convertUID function transforms the read UID into a string format for easy comparison 
+with stored authorized user UIDs. This conversion is necessary because UIDs are read as
+bytes and need to be converted to a user-friendly format for comparison:
+
+String convertUID(MFRC522 &mfrc522) {
+    String readUID = "";
+    for (byte i = 0; i < mfrc522.uid.size; i++) {
+        readUID += String(mfrc522.uid.uidByte[i] < 0x10 ? "0" : "") + String(mfrc522.uid.uidByte[i], HEX);
+    }
+    readUID.toUpperCase();
+    return readUID;
+}
+
+bool isAuthorizedUID(String uid) {
+    for (int i = 0; i < uidCount; i++) {
+        if (authorizedUsers[i].uid == uid) return true;
+    }
+    return false;
+}
+
+------------Optimization of LED and Buzzer Functions:
+
+void turnOffLEDs() {
+    digitalWrite(GREEN_PIN, LOW);
+    digitalWrite(RED_PIN, LOW);
+    digitalWrite(BLUE_PIN, LOW);
+}
+
+void playTone(int tone, int duration) {
+    digitalWrite(BUZZER_PIN, LOW);
+    tone(BUZZER_PIN, tone, duration);
+    delay(duration);
+    noTone(BUZZER_PIN);
+    digitalWrite(BUZZER_PIN, HIGH);
+}
+
+By modularizing the code and using dedicated functions for each operation, the code
+has become clearer, easier to maintain, and more efficient in terms of performance.
